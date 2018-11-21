@@ -6,6 +6,10 @@ const onerror = require('koa-onerror')
 const bodyparser = require('koa-bodyparser')
 const logger = require('koa-logger')
 const router = require('./routes/index')
+const session = require('koa-session')
+const mongoose = require('mongoose')
+const CONFIG = require('./config/config')
+const flash = require('./middlewares/flash')
 
 
 const app = new Koa()
@@ -32,12 +36,28 @@ app.use(async (ctx, next) => {
   console.log(`${ctx.method} ${ctx.url} - ${ms}ms`)
 })
 
-// routes
-app.use(router.routes(), router.allowedMethods())
+//databases
+mongoose.connect(CONFIG.mongodb, {useNewUrlParser:true, useCreateIndex: true})
 
+//session
+app.keys = ['somethings']  //设置cook的键
+app.use(session({
+  key: CONFIG.session.key,
+  maxAge: CONFIG.session.maxAge
+},app))
 // error-handling
 app.on('error', (err, ctx) => {
   console.error('server error', err, ctx)
 });
+
+app.use(flash())
+// routes
+//koa-view的数据来源于ctx.state
+//const state = Object.assign(locals, options, ctx.state || {})
+app.use(async (ctx,next)=>{
+  ctx.state.ctx = ctx
+  await next()
+})
+app.use(router.routes(), router.allowedMethods())
 
 module.exports = app
